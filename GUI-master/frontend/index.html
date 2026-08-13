@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GUI</title>
+  <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-streaming@2.0.0/dist/chartjs-plugin-streaming.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="https://unpkg.com/three@0.145.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.145.0/examples/js/loaders/OBJLoader.js"></script>
+  <script src="https://unpkg.com/three@0.145.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="./JS/sidebar.js"></script>
+   <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      if (window.SimpleGUISidebar) {
+        window.SimpleGUISidebar.initSidebar();
+      }
+    });
+  </script>
+  <link rel="icon" type="image/x-icon" href="./assets/GUI.svg">
+    <link rel="stylesheet" href="./css/theme.css" />
+  <style>
+  :root {
+    --sidebar-width: 240px;
+    --sidebar-collapsed-width: 72px;
+  }
+
+  body { font-family: 'Courier New', monospace; background: #000; }
+  .dashboard-border { border: 2px solid #fff; background: #000; }
+
+  #sidebar {
+    z-index: 60;
+  }
+
+  #mainTopBar {
+    left: var(--sidebar-width);
+    width: calc(100% - var(--sidebar-width));
+  }
+
+  .topbar-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+  }
+
+  .topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  .topbar-stats {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .topbar-center {
+    text-align: center;
+    justify-self: center;
+  }
+
+  .topbar-right {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    min-width: 0;
+  }
+
+  #sidebar.collapsed ~ #mainTopBar {
+    left: var(--sidebar-collapsed-width);
+    width: calc(100% - var(--sidebar-collapsed-width));
+  }
+
+  #dashboardGrid {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+    transition: width 0.2s ease;
+  }
+
+    .digital-display {
+      position: absolute; top: 0.5rem; right: 0.5rem;
+  background: rgba(0,0,0,0.8); color: #fff; font-size: 0.75rem;
+      font-family: monospace; padding: 0.25rem 0.75rem;
+      border-radius: 0.375rem; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px 0 rgba(0,0,0,0.06);
+      pointer-events: none; z-index: 10;
+    }
+    #map { height: 100%; width: 100%; border-radius: 8px; min-height: 200px; }
+  .leaflet-container { background: #000; }
+    
+    /* Toggle Switch Styles */okay 
+    #checkboxInput {
+      display: none;
+    }
+
+    .toggleSwitch {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      width: 50px;
+      height: 30px;
+  background-color: #000;
+      border-radius: 20px;
+      cursor: pointer;
+      transition-duration: .2s;
+    }
+
+    .toggleSwitch::after {
+      content: "";
+      position: absolute;
+      height: 10px;
+      width: 10px;
+      left: 5px;
+      background-color: transparent;
+      border-radius: 50%;
+      transition-duration: .2s;
+      box-shadow: 5px 2px 7px rgba(8, 8, 8, 0.26);
+      border: 5px solid white;
+    }
+
+    #checkboxInput:checked+.toggleSwitch::after {
+      transform: translateX(100%);
+      transition-duration: .2s;
+      background-color: white;
+    }
+
+    #checkboxInput:checked+.toggleSwitch {
+      background-color: rgb(238, 86, 11);
+      transition-duration: .2s;
+    }
+
+    .toggle-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    /* 3D CanSat Model Styling */
+.cansat-body {
+  position: relative;
+  width: 80px;
+  height: 80px;
+}
+
+.cylinder-face {
+  position: absolute;
+  border: 1px solid rgba(156, 163, 175, 0.3);
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.1);
+}
+
+/* Metallic surface effects */
+.cansat-body::before {
+  content: '';
+  position: absolute;
+  width: 84px;
+  height: 84px;
+  background: radial-gradient(ellipse at 30% 30%, rgba(255, 255, 255, 0.3), transparent 50%);
+  border-radius: 50%;
+  transform: translateX(-42px) translateY(-42px) translateZ(41px);
+  pointer-events: none;
+}
+
+/* Realistic lighting */
+#satellite3d {
+  min-height: 320px;
+  height: 320px;
+  filter: drop-shadow(5px 5px 15px rgba(0, 0, 0, 0.5));
+}
+
+/* Dynamic glow based on motion */
+.motion-glow {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle, rgba(34, 197, 94, 0.1) 0%, transparent 70%);
+  border-radius: 50%;
+  transform: translateX(-60px) translateY(-60px) translateZ(-10px);
+  transition: all 0.3s ease;
+}
+
+@media (max-width: 1080px) {
+  #mainTopBar {
+    left: var(--sidebar-collapsed-width);
+    width: calc(100% - var(--sidebar-collapsed-width));
+  }
+}
+
+  </style>
+</head>
+
+<body class="bg-[#0D0B30] text-white min-h-screen p-4">
+  <div class="app-shell">
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-head">
+        <span class="sidebar-title">TEAM INVINCIBLE</span>
+        <button id="sidebarCollapseBtn" class="collapse-btn"><</button>
+      </div>
+      <nav class="nav-list">
+        <a class="nav-item" href="index.html"><span class="nav-icon">
+          <img src="./assets/home.svg" alt="home"/>
+        </span><span class="nav-label">Home</span></a>
+        <a class="nav-item" href="./routes/sensors.html"><span class="nav-icon"><img src="./assets/sensor.svg" alt="home"/></span><span class="nav-label">Sensors</span></a>
+        <a class="nav-item" href="./routes/gps.html"><span class="nav-icon"><img src="./assets/GPS.svg" alt="home"/></span><span class="nav-label">GPS</span></a>
+        <a class="nav-item" href="./routes/gyro.html"><span class="nav-icon"><img src="./assets/gyro.svg" alt="home"/></span><span class="nav-label">Gyro</span></a>
+        <a class="nav-item" href="./routes/communication.html"><span class="nav-icon"><img src="./assets/comms.svg" alt="home"/></span><span class="nav-label">Communication</span></a>
+      </nav>
+    </aside>
+  <div id="mainTopBar" class="fixed top-0 z-40 bg-black text-white py-2 px-4 shadow min-h-[64px] flex items-center border-radius-lg">
+    <div class="topbar-content text-sm font-mono">
+      <div class="topbar-left">
+        <img src="./assets/file.jpg" alt="Left Logo" class="h-10 w-10 object-contain" />
+        <div class="topbar-stats">
+          <span id="signal" style="display: inline-block; min-width: 110px; text-align: left;">SIGNAL: --</span>
+          <span id="status">STATUS: DISCONNECTED</span>
+          <span>IST TIME: <span id="istTime">--:--:--</span></span>
+        </div>
+      </div>
+
+      <div class="topbar-center">
+        <div class="text-lg font-bold">TEAM INVINCIBLE</div>
+        <div class="text-lg">2024ASI-052</div>
+        <div class="text-lg mt-1" id="timer">00:00:00</div>
+      </div>
+
+      <div class="topbar-right">
+        <img src="./assets/Inspace.png" alt="INSPACE Logo" class="h-12 object-contain">
+      </div>
+    </div>
+  </div>
+  
+
+  <!-- Dashboard Grid -->
+  <div id="dashboardGrid" class="pt-24 grid grid-cols-12 gap-4 h-[calc(100vh-120px)]">
+    <!-- Pressure Chart -->
+    <div class="col-span-3 dashboard-border p-4 text-center relative flex flex-col items-center justify-center">
+      <div class="font-bold mb-2">Pressure</div>
+      <div class="h-40 w-full relative">
+        <canvas id="pressureChart" class="w-full h-full"></canvas>
+        <div id="pressureDisplay" class="digital-display">-- hPa</div>
+      </div>
+    </div>
+    <!-- 3D Satellite Visualization with Side Panels -->
+    <div class="col-span-6 row-span-2 grid grid-cols-8 gap-4">
+      <!-- Left Side Panel -->
+      <div class="col-span-2 space-y-4">
+        <!-- Battery Voltage -->
+        <div class="dashboard-border p-2 text-center relative">
+          <div class="font-bold mb-1 text-sm">BATTERY VOLTAGE</div>
+          <div class="h-32 relative">
+            <canvas id="batteryVoltageChart"></canvas>
+            <div id="voltageDisplay" class="digital-display text-xs">-- V</div>
+          </div>
+        </div>
+        <!-- Power -->
+        <div class="dashboard-border p-2 text-center">
+          <div class="font-bold mb-1 text-sm">POWER</div>
+          <div class="h-32 relative">
+            <canvas id="powerChart"></canvas>
+            <div id="powerDisplay" class="digital-display text-xs">-- W</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-span-4 flex flex-col items-center justify-center">
+        <div class="font-bold mb-2 text-green-400">SATELLITE ORIENTATION</div>
+        
+        <!-- Three.js 3D Model Container -->
+        <div id="satellite3d" class="relative w-full h-80 bg-black rounded-lg overflow-hidden">
+          <!-- Three.js will render here -->
+        </div>
+        
+        <div class="mt-4 text-xs bg-black bg-opacity-80 p-3 rounded-lg border border-white-500 font-mono w-full">
+          <div class="text-red-400">Roll:  <span id="rollDisplay">0.0°</span></div>
+          <div class="text-green-400">Pitch: <span id="pitchDisplay">0.0°</span></div>
+          <div class="text-blue-400">Yaw:   <span id="yawDisplay">0.0°</span></div>
+          <div class="text-yellow-400 text-xs mt-1">Motion: <span id="motionIntensity">STABLE</span></div>
+        </div>
+      </div>
+
+   
+      <div class="col-span-2 space-y-4">
+    
+        <div class="dashboard-border p-2 text-center relative">
+          <div class="font-bold mb-1 text-sm">BATTERY CURRENT</div>
+          <div class="h-32 relative">
+            <canvas id="batteryCurrentChart"></canvas>
+            <div id="currentDisplay" class="digital-display text-xs">-- mA</div>
+          </div>
+        </div>
+
+        <div class="dashboard-border p-2 text-center">
+          <div class="font-bold mb-1 text-sm">GAS RESISTANCE</div>
+          <div class="h-32 flex items-center justify-center">
+            <span id="gasResistance" class="text-xl">--</span>
+            <span class="ml-1 text-sm">Ω</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-span-3 dashboard-border p-4 text-center relative flex flex-col items-center justify-center">
+      <div class="font-bold mb-2">Altitude</div>
+      <div class="h-40 w-full relative">
+        <canvas id="altitudeChart" class="w-full h-full"></canvas>
+        <div id="altitudeDisplay" class="digital-display">-- m</div>
+      </div>
+    </div>
+
+    <div class="col-span-3 dashboard-border p-4 text-center relative flex flex-col items-center justify-center">
+      <div class="font-bold mb-2">Temperature</div>
+      <div class="h-40 w-full relative">
+        <canvas id="temperatureChart" class="w-full h-full"></canvas>
+        <div id="temperatureDisplay" class="digital-display">-- °C</div>
+      </div>
+    </div>
+
+    <div class="col-span-3 dashboard-border p-4 text-center relative flex flex-col items-center justify-center">
+      <div class="font-bold mb-2">Humidity</div>
+      <div class="h-40 w-full relative">
+        <canvas id="humidityChart" class="w-full h-full"></canvas>
+        <div id="humidityDisplay" class="digital-display">-- %</div>
+      </div>
+    </div>
+
+  <div class="col-span-12 grid grid-cols-12 gap-4">
+    <!-- Map -->
+    <div class="col-span-3 dashboard-border p-4 h-[250px]">
+      <div id="map" class="h-full"></div>
+    </div>
+
+    <div class="col-span-3 grid grid-rows-3 gap-2 h-[250px]">
+      <div class="dashboard-border p-2 text-center flex flex-col justify-center">
+        <div class="text-sm font-bold">GNSS LATITUDE</div>
+        <div class="text-lg" id="lat">--</div>
+      </div>
+      <div class="dashboard-border p-2 text-center flex flex-col justify-center">
+        <div class="text-sm font-bold">GNSS LONGITUDE</div>
+        <div class="text-lg" id="lon">--</div>
+      </div>
+      <div class="dashboard-border p-2 text-center flex flex-col justify-center">
+        <div class="text-sm font-bold">GNSS ALTITUDE</div>
+        <div class="text-lg" id="gnssAlt">--</div>
+      </div>
+    </div>
+
+    <div class="col-span-2 grid grid-rows-2 gap-2 h-[250px]">
+      <div class="dashboard-border p-2 text-center flex flex-col justify-center">
+        <div class="text-sm font-bold">PRIMARY PARACHUTE</div>
+        <div class="text-lg text-green-400" id="pPara">--</div>
+      </div>
+      <div class="dashboard-border p-2 text-center flex flex-col justify-center">
+        <div class="text-sm font-bold">SECONDARY PARACHUTE</div>
+        <div class="text-lg text-red-400" id="sPara">--</div>
+      </div>
+    </div>
+
+
+    <div class="col-span-2 grid grid-rows-3 gap-2 h-[250px]">
+      <div class="dashboard-border p-2 text-center flex flex-col justify-center">
+        <div class="text-sm font-bold">PORT</div>
+        <div class="text-lg" id="port-display">COM 7</div>
+      </div>
+      <div class="dashboard-border p-2 text-center flex flex-col justify-center">
+        <div class="text-sm font-bold">BAUD RATE</div>
+        <div class="text-lg" id="baudRate">9600</div>
+      </div>
+      <div class="dashboard-border p-2 text-center flex flex-col justify-center">
+        <div class="text-sm font-bold"></div>
+        <div class="text-lg" id="dataRate">--</div>
+      </div>
+    </div>
+
+
+    <div class="col-span-2 dashboard-border p-2 text-center flex flex-col justify-center h-[250px]">
+      <div class="text-sm font-bold">PACKET COUNT</div>
+      <div class="text-2xl mt-2" id="packetCount">--</div>
+    </div>
+  </div>
+
+
+    <div class="col-span-4 dashboard-border p-4 text-center relative flex flex-col items-center justify-center">
+      <div class="font-bold mb-2">Accelerometer</div>
+      <div class="h-40 w-full relative">
+        <canvas id="accelChart" class="w-full h-full"></canvas>
+        <div id="accelDisplay" class="digital-display">--</div>
+      </div>
+    </div>
+
+    <div class="col-span-4 dashboard-border p-4 text-center relative flex flex-col items-center justify-center">
+      <div class="font-bold mb-2">Gyroscope</div>
+      <div class="h-40 w-full relative">
+        <canvas id="gyroChart" class="w-full h-full"></canvas>
+        <div id="gyroDisplay" class="digital-display">--</div>
+      </div>
+    </div>
+
+    <div class="col-span-4 dashboard-border p-4 text-center relative flex flex-col items-center justify-center">
+      <div class="font-bold mb-2">Magnetometer</div>
+      <div class="h-40 w-full relative">
+        <canvas id="magChart" class="w-full h-full"></canvas>
+        <div id="magDisplay" class="digital-display">--</div>
+      </div>
+    </div>
+    
+    </div>
+  </div>
+
+  <script src="./JS/chart.js"></script>
+  <script src="./JS/index.js"></script>
+  <script src="./JS/map.js"></script>
+  <script src="./JS/threejs-sat.js"></script>
+  <script src="./JS/orientation.js"></script>
+  <script src="./JS/telemetry_update-ui.js"></script>
+  <script src="./JS/socket.js"></script>
+  <script src="./JS/timer.js"></script>
+  </body>
+</html>

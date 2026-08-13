@@ -1,0 +1,23 @@
+{
+  "name": "frontend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "chart.js": "^3.9.1",
+    "chartjs-adapter-date-fns": "^3.0.0",
+    "chartjs-plugin-streaming": "^2.0.0",
+    "date-fns": "^4.1.0",
+    "leaflet": "^1.9.4",
+    "socket.io-client": "^4.8.3",
+    "tailwindcss": "^2.2.19",
+    "three": "^0.145.0"
+  }
+}

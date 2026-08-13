@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GUI - Communication</title>
+  <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
+  <link rel="stylesheet" href="../css/theme.css" />
+  <link rel="icon" type="image/x-icon" href="../assets/GUI.svg">
+</head>
+<body>
+  <div class="app-shell">
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-head">
+        <span class="sidebar-title">TEAM INVINCIBLE</span>
+        <button id="sidebarCollapseBtn" class="collapse-btn"><</button>
+      </div>
+      <nav class="nav-list">
+        <a class="nav-item" href="../index.html"><span class="nav-icon"><img src="../assets/home.svg" alt="home"/></span><span class="nav-label">Home</span></a>
+        <a class="nav-item" href="sensors.html"><span class="nav-icon"><img src="../assets/sensor.svg" alt="sensors"/></span><span class="nav-label">Sensors</span></a>
+        <a class="nav-item" href="gps.html"><span class="nav-icon"><img src="../assets/GPS.svg" alt="gps"/></span><span class="nav-label">GPS</span></a>
+        <a class="nav-item" href="gyro.html"><span class="nav-icon"><img src="../assets/gyro.svg" alt="gyro"/></span><span class="nav-label">Gyro</span></a>
+        <a class="nav-item" href="communication.html"><span class="nav-icon"><img src="../assets/comms.svg" alt="communication"/></span><span class="nav-label">Communication</span></a>
+      </nav>
+    </aside>
+
+    <main class="content-wrap">
+      <div class="top-strip"><div class="row"><div>Communication Route</div></div></div>
+      <div class="grid grid-2">
+        <section class="dashboard-border card">
+          <h3>Signal</h3>
+          <div class="metric" id="signal">SIGNAL: -- dBm</div>
+          <div class="digital-display" id="status">STATUS: DISCONNECTED</div>
+        </section>
+
+        <section class="dashboard-border card">
+          <h3>Device Link</h3>
+          <div class="digital-display">PORT: <span id="portDisplay">--</span></div>
+          <div class="digital-display">BAUD RATE: <span id="baudRate">--</span></div>
+          <div class="digital-display" id="dataRate">DATA RATE: --</div>
+          <div class="metric">PACKET COUNT: <span id="packetCount">--</span></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script src="../JS/sidebar.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      if (window.SimpleGUISidebar) {
+        window.SimpleGUISidebar.initSidebar();
+      }
+    });
+  </script>
+  <script src="../JS/telemetry_update-ui.js"></script>
+  <script src="../JS/socket.js"></script>
+</body>
+</html>
