@@ -24,12 +24,102 @@ server.listen(3000, () => {
   console.log('Waiting for telemetry data...');
 });
 
-const defaultSerialPath = process.platform === 'win32' ? 'COM11' : '/dev/ttyUSB0';
+const defaultSerialPath = process.platform === 'win32' ? 'COM8' : '/dev/ttyUSB0';
 const serialPath = process.env.SERIAL_PORT || defaultSerialPath;
-const serialBaudRate = Number(process.env.BAUD_RATE || 9600);
+const serialBaudRate = Number(process.env.BAUD_RATE || 115200);
 
 let port = null;
 let parser = null;
+let simulatorRunning = false;
+
+// Simulator data generation (fallback when serial port unavailable)
+let currentTime = 0;
+const flightDuration = 600;
+const maxAltitude = 700;
+const launchPadAltitude = 100;
+let packetCount = 0;
+
+function simulateGNSSAltitude() {
+  currentTime++;
+  if (currentTime >= flightDuration) {
+    currentTime = 0;
+  }
+  if (currentTime < 120) {
+    return launchPadAltitude + (maxAltitude - launchPadAltitude) * (currentTime / 120) + (Math.random() * 5 - 2.5);
+  } else if (currentTime < 240) {
+    return maxAltitude + (Math.random() * 10 - 5);
+  } else if (currentTime < 540) {
+    const timeInDescent = currentTime - 240;
+    const descentProgress = timeInDescent / 300;
+    return maxAltitude - (maxAltitude - launchPadAltitude) * (descentProgress * descentProgress) + (Math.random() * 5 - 2.5);
+  } else {
+    return launchPadAltitude + (Math.random() * 2 - 1);
+  }
+}
+
+function startSimulator() {
+  if (simulatorRunning) return;
+  simulatorRunning = true;
+  console.log('Starting simulator mode...');
+  
+  const temperatureValues = [22.98, 23.00, 23.02];
+  const pressureValues = [1004.9, 1005.0, 1005.1];
+  const altitudeValues = [319.9, 320.0, 320.1];
+  const humidityValues = [33.9, 34.0, 34.1];
+  const batteryVoltageValues = [3.94, 3.95, 3.96];
+  const batteryCurrentValues = [913, 915, 917];
+  const gasResistanceValues = [7458, 7460, 7462];
+  const batteryValues = [93, 94, 95];
+  const latitudeValues = [13.733328, 13.733330, 13.733332];
+  const longitudeValues = [80.204928, 80.204930, 80.204932];
+
+  function pick(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  setInterval(() => {
+    packetCount++;
+    const signal = (Math.random() * 110 - 120).toFixed(0);
+    const data_rate = (Math.random() * 1.5 + 0.5).toFixed(2);
+    const voltage = pick(batteryVoltageValues);
+    const current = pick(batteryCurrentValues);
+    const power = (voltage * current / 1000).toFixed(2);
+    const gnssAltitude = simulateGNSSAltitude().toFixed(1);
+    
+    const packet = {
+      team_id: "2024ASI-052",
+      timestamp: Date.now(),
+      temperature: pick(temperatureValues).toFixed(2),
+      pressure: pick(pressureValues).toFixed(2),
+      altitude: pick(altitudeValues).toFixed(2),
+      humidity: pick(humidityValues).toFixed(2),
+      battery_voltage: voltage.toFixed(2),
+      battery_current: current.toFixed(0),
+      power: power,
+      gas_resistance: pick(gasResistanceValues).toFixed(0),
+      battery: pick(batteryValues).toFixed(0),
+      latitude: pick(latitudeValues).toFixed(6),
+      longitude: pick(longitudeValues).toFixed(6),
+      gnss_altitude: gnssAltitude,
+      packet_count: packetCount,
+      primary_parachute: "DEPLOYED",
+      secondary_parachute: "NOT DEPLOYED",
+      accel_x: (Math.random() * 2 - 1).toFixed(3),
+      accel_y: (Math.random() * 2 - 1).toFixed(3),
+      accel_z: (9.8 + Math.random() * 0.4 - 0.2).toFixed(3),
+      gyro_x: (Math.random() * 20 - 10).toFixed(3),
+      gyro_y: (Math.random() * 20 - 10).toFixed(3),
+      gyro_z: (Math.random() * 20 - 10).toFixed(3),
+      mag_x: (Math.random() * 100 - 50).toFixed(3),
+      mag_y: (Math.random() * 100 - 50).toFixed(3),
+      mag_z: (Math.random() * 100 - 50).toFixed(3),
+      signal,
+      data_rate
+    };
+
+    io.emit("new_data", packet);
+  }, 1000);
+}
 
 function handleSerialData(data) {
   try {
@@ -208,6 +298,8 @@ function startSerialBridge() {
       if (err) {
         console.error(`Failed to open serial port ${serialPath}:`, err.message);
         console.error('Set SERIAL_PORT env var if your device path is different.');
+        console.log('Falling back to simulator mode...');
+        startSimulator();
         return;
       }
 
