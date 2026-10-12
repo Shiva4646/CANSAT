@@ -1,0 +1,225 @@
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { io } from 'socket.io-client'
+
+const TelemetryContext = createContext(null)
+
+const initialTelemetryState = {
+  teamName: 'TEAM INVINCIBLE',
+  teamId: '2024ASI-052',
+  rssi: -50,
+  motionState: 'TUMBLING',
+  power: 0,
+  batteryCurrent: 0,
+  batteryVoltage: 0,
+  gasResistance: 0,
+  humidity: 0,
+  gnssLat: 0,
+  gnssLon: 0,
+  gnssAlt: 0,
+  primaryParachute: '--',
+  secondaryParachute: '--',
+  port: 'COM 8',
+  baudRate: 115200,
+  packetCount: 0,
+  telemetry: {
+    altitude: 0,
+    pressure: 0,
+    temperature: 0,
+    voltage: 0,
+  },
+  gyroscope: { pitch: 0, roll: 0, yaw: 0 },
+  gps: { latitude: 0, longitude: 0, satellites: 0 },
+  accelerometer: { x: 0, y: 0, z: 0 },
+  magnetometer: { x: 0, y: 0, z: 0 },
+  missionTime: '00:00:00',
+  history: [],
+  communication: {
+    packetCount: 0,
+    signal: -50,
+    dataRate: 0,
+    rawData: '',
+    connected: false,
+    serialConfig: { port: 'COM 8', baudRate: 115200 },
+  },
+}
+
+const toNumber = (value, fallback) => {
+  const number = Number(value)
+  return Number.isFinite(number) ? number : fallback
+}
+
+const firstDefined = (...values) => values.find((value) => value !== undefined)
+
+const formatMissionTime = (value) => {
+  if (typeof value === 'string' && value.trim()) return value
+  const seconds = toNumber(value, 0)
+  return [Math.floor(seconds / 3600), Math.floor((seconds % 3600) / 60), Math.floor(seconds % 60)]
+    .map((part) => String(part).padStart(2, '0'))
+    .join(':')
+}
+
+const updateTelemetryState = (previous, data) => {
+  const altitude = toNumber(firstDefined(data.altitude, data.alt), previous.telemetry.altitude)
+  const pressure = toNumber(data.pressure, previous.telemetry.pressure)
+  const temperature = toNumber(firstDefined(data.temperature, data.temp), previous.telemetry.temperature)
+  const voltage = toNumber(firstDefined(data.battery_voltage, data.voltage), previous.batteryVoltage)
+  const current = toNumber(firstDefined(data.battery_current, data.current), previous.batteryCurrent)
+  const latitude = toNumber(firstDefined(data.latitude, data.lat, data.gnss_lat), previous.gnssLat)
+  const longitude = toNumber(firstDefined(data.longitude, data.lon, data.gnss_lon), previous.gnssLon)
+  const gnssAlt = toNumber(firstDefined(data.gnss_altitude, data.gnssAlt, altitude), previous.gnssAlt)
+  const packetCount = toNumber(
+    firstDefined(data.packet_count, data.packetCount),
+    previous.packetCount + 1,
+  )
+  const next = {
+    ...previous,
+    teamName: data.team_name ?? data.teamName ?? previous.teamName,
+    teamId: data.team_id ?? data.teamId ?? previous.teamId,
+    rssi: toNumber(firstDefined(data.rssi, data.signal), previous.rssi),
+    motionState: data.motion_state ?? data.motionState ?? previous.motionState,
+    power: toNumber(
+      firstDefined(data.power, voltage * current / 1000),
+      previous.power,
+    ),
+    batteryCurrent: current,
+    batteryVoltage: voltage,
+    gasResistance: toNumber(
+      firstDefined(data.gas_resistance, data.gasResistance),
+      previous.gasResistance,
+    ),
+    humidity: toNumber(data.humidity, previous.humidity),
+    gnssLat: latitude,
+    gnssLon: longitude,
+    gnssAlt,
+    primaryParachute: data.primary_parachute ?? data.primaryParachute ?? previous.primaryParachute,
+    secondaryParachute: data.secondary_parachute ?? data.secondaryParachute ?? previous.secondaryParachute,
+    port: data.port ?? data.serial_port ?? previous.port,
+    baudRate: toNumber(data.baudRate ?? data.baud_rate, previous.baudRate),
+    packetCount,
+    telemetry: { altitude, pressure, temperature, voltage },
+    gyroscope: {
+      pitch: toNumber(firstDefined(data.pitch, data.gyro_y), previous.gyroscope.pitch),
+      roll: toNumber(firstDefined(data.roll, data.gyro_x), previous.gyroscope.roll),
+      yaw: toNumber(firstDefined(data.yaw, data.gyro_z), previous.gyroscope.yaw),
+    },
+    gps: {
+      latitude,
+      longitude,
+      satellites: toNumber(data.satellites, previous.gps.satellites),
+    },
+    accelerometer: {
+      x: toNumber(firstDefined(data.accel_x, data.accelX), previous.accelerometer.x),
+      y: toNumber(firstDefined(data.accel_y, data.accelY), previous.accelerometer.y),
+      z: toNumber(firstDefined(data.accel_z, data.accelZ), previous.accelerometer.z),
+    },
+    magnetometer: {
+      x: toNumber(firstDefined(data.mag_x, data.magX), previous.magnetometer.x),
+      y: toNumber(firstDefined(data.mag_y, data.magY), previous.magnetometer.y),
+      z: toNumber(firstDefined(data.mag_z, data.magZ), previous.magnetometer.z),
+    },
+    missionTime: formatMissionTime(
+      data.missionTime ?? data.mission_time ?? data.gnss_time,
+    ),
+    history: [
+      ...previous.history,
+      {
+        timestamp: Date.now(),
+        altitude,
+        gnssAltitude: gnssAlt,
+        pressure,
+        temperature,
+        humidity: toNumber(data.humidity, previous.humidity),
+        voltage,
+        gasResistance: toNumber(
+          firstDefined(data.gas_resistance, data.gasResistance),
+          previous.gasResistance,
+        ),
+        latitude,
+        longitude,
+        accelX: toNumber(firstDefined(data.accel_x, data.accelX), previous.accelerometer.x),
+        accelY: toNumber(firstDefined(data.accel_y, data.accelY), previous.accelerometer.y),
+        accelZ: toNumber(firstDefined(data.accel_z, data.accelZ), previous.accelerometer.z),
+        gyroX: toNumber(firstDefined(data.gyro_x, data.gyroX), previous.gyroscope.roll),
+        gyroY: toNumber(firstDefined(data.gyro_y, data.gyroY), previous.gyroscope.pitch),
+        gyroZ: toNumber(firstDefined(data.gyro_z, data.gyroZ), previous.gyroscope.yaw),
+        magX: toNumber(firstDefined(data.mag_x, data.magX), previous.magnetometer.x),
+        magY: toNumber(firstDefined(data.mag_y, data.magY), previous.magnetometer.y),
+        magZ: toNumber(firstDefined(data.mag_z, data.magZ), previous.magnetometer.z),
+      },
+    ].slice(-30),
+    communication: {
+      ...previous.communication,
+      packetCount,
+      signal: toNumber(firstDefined(data.signal, data.rssi), previous.communication.signal),
+      dataRate: toNumber(data.data_rate, previous.communication.dataRate),
+    },
+  }
+  return next
+}
+
+export function TelemetryProvider({ children }) {
+  const [state, setState] = useState(initialTelemetryState)
+
+  useEffect(() => {
+    const socket = io('http://localhost:3000', {
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+    })
+    const handleTelemetryUpdate = (data) => {
+      if (data && typeof data === 'object') {
+        setState((previous) => updateTelemetryState(previous, data))
+      }
+    }
+    socket.on('new_data', handleTelemetryUpdate)
+    socket.on('telemetry_update', handleTelemetryUpdate)
+    socket.on('raw_data', (rawData) => {
+      setState((previous) => ({
+        ...previous,
+        communication: { ...previous.communication, rawData: String(rawData) },
+      }))
+    })
+    socket.on('serial_config', (config) => {
+      setState((previous) => ({
+        ...previous,
+        port: config.port ?? previous.port,
+        baudRate: config.baudRate ?? previous.baudRate,
+        communication: {
+          ...previous.communication,
+          serialConfig: {
+            port: config.port ?? previous.port,
+            baudRate: config.baudRate ?? previous.baudRate,
+          },
+        },
+      }))
+    })
+    socket.on('connect', () => {
+      setState((previous) => ({
+        ...previous,
+        communication: { ...previous.communication, connected: true },
+      }))
+    })
+    socket.on('disconnect', () => {
+      setState((previous) => ({
+        ...previous,
+        communication: { ...previous.communication, connected: false },
+      }))
+    })
+    return () => {
+      socket.off('new_data', handleTelemetryUpdate)
+      socket.off('telemetry_update', handleTelemetryUpdate)
+      socket.disconnect()
+    }
+  }, [])
+
+  return (
+    <TelemetryContext.Provider value={useMemo(() => state, [state])}>
+      {children}
+    </TelemetryContext.Provider>
+  )
+}
+
+export function useTelemetry() {
+  const context = useContext(TelemetryContext)
+  if (!context) throw new Error('useTelemetry must be used within a TelemetryProvider')
+  return context
+}
