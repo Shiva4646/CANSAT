@@ -24,7 +24,7 @@ server.listen(3000, () => {
   console.log('Waiting for telemetry data...');
 });
 
-const defaultSerialPath = process.platform === 'win32' ? 'COM8' : '/dev/ttyUSB0';
+const defaultSerialPath = process.platform === 'win32' ? 'COM12' : '/dev/ttyUSB0';
 const serialPath = process.env.SERIAL_PORT || defaultSerialPath;
 const serialBaudRate = Number(process.env.BAUD_RATE || 115200);
 
